@@ -32,6 +32,27 @@ func SafeInputPath(path string) (string, error) {
 	return safePath(path, "--file")
 }
 
+// SafeEnvDirPath validates an environment-provided application directory path.
+// It requires an absolute path, rejects control characters, normalizes the
+// input, and resolves symlinks through the nearest existing ancestor so callers
+// receive a canonical path for subsequent filesystem operations.
+func SafeEnvDirPath(path, envName string) (string, error) {
+	if err := RejectControlChars(path, envName); err != nil {
+		return "", err
+	}
+
+	path = filepath.Clean(path)
+	if !filepath.IsAbs(path) {
+		return "", fmt.Errorf("%s must be an absolute path, got %q", envName, path)
+	}
+
+	resolved, err := resolveNearestAncestor(path)
+	if err != nil {
+		return "", fmt.Errorf("cannot resolve symlinks: %w", err)
+	}
+	return resolved, nil
+}
+
 // SafeLocalFlagPath validates a flag value as a local file path.
 // Empty values and http/https URLs are returned unchanged without validation,
 // allowing the caller to handle non-path inputs (e.g. API keys, URLs) upstream.
